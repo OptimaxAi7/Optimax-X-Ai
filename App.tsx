@@ -1,8 +1,8 @@
 import React from 'react';
-import Hero from './components/Hero';
-import PostBuilder from './components/PostBuilder';
-import FeatureGrid from './components/FeatureGrid';
-import Button from './components/Button';
+import Hero from './Hero';
+import PostBuilder from './PostBuilder';
+import FeatureGrid from './FeatureGrid';
+import Button from './Button';
 import { Menu } from 'lucide-react';
 
 const App: React.FC = () => {
