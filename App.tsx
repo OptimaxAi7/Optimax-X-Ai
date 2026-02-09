@@ -12,22 +12,24 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('config');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // NEW: Analysis Engine States
+  const [analysisLog, setAnalysisLog] = useState<string[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
 
-  // CRITICAL: Initialize with hardcoded empty values to prevent "undefined" map errors
   const [userSettings, setUserSettings] = useState({
     niche: '',
     mentors: ['', '', '', '', '', '', '', '', '', ''] 
   });
 
   useEffect(() => {
-    // 1. Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchSettings(session.user.id);
       else setLoading(false);
     });
 
-    // 2. Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchSettings(session.user.id);
@@ -43,13 +45,14 @@ export default function App() {
         .from('user_settings')
         .select('niche, mentors')
         .eq('user_id', userId)
-        .maybeSingle(); // This is the safety valve: it returns null instead of crashing if no data exists
+        .maybeSingle();
 
       if (data) {
         setUserSettings({
           niche: data.niche || '',
           mentors: data.mentors && data.mentors.length === 10 ? data.mentors : ['', '', '', '', '', '', '', '', '', '']
         });
+        if (data.niche) setHasSynced(true);
       }
     } catch (e) {
       console.error("Data Fetch Blocked:", e);
@@ -68,11 +71,45 @@ export default function App() {
       updated_at: new Date()
     });
     setIsSaving(false);
-    if (!error) alert("SaaS AI Engine Updated.");
-    else alert("Error saving. Ensure table 'user_settings' exists in Supabase.");
+    if (!error) {
+      setHasSynced(true);
+      alert("SaaS AI Engine Updated.");
+    } else {
+      alert("Error saving context.");
+    }
   };
 
-  // --- RENDERING GUARDS ---
+  // NEW: Analysis Engine Function
+  const runAnalysis = async () => {
+    const validMentors = userSettings.mentors.filter(m => m.trim() !== '');
+    if (!userSettings.niche || validMentors.length < 3) {
+      alert("Please provide your niche and at least 3 mentors to begin analysis.");
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setAnalysisLog(["Initializing Analysis Engine...", "Establishing Neural Link to X handles..."]);
+
+    try {
+      const response = await fetch('/.netlify/functions/analyze-mentors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          niche: userSettings.niche, 
+          mentors: validMentors 
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Engine timeout");
+      
+      setAnalysisLog(prev => [...prev, "Analyzing Writing Tones...", "Parsing Engagement Patterns...", "SUCCESS: Mimicry Profile Active."]);
+    } catch (err) {
+      setAnalysisLog(prev => [...prev, "ERROR: Analysis Interrupted. Check API connection."]);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-white gap-4">
       <RefreshCw className="animate-spin text-blue-600 w-12 h-12" />
@@ -84,7 +121,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex font-sans text-slate-900">
-      {/* SIDEBAR */}
       <aside className="w-80 bg-white border-r border-slate-200 p-8 flex flex-col">
         <div className="flex items-center gap-4 mb-16">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg"><Rocket className="w-5 h-5" /></div>
@@ -104,7 +140,6 @@ export default function App() {
         <button onClick={() => supabase.auth.signOut()} className="text-[10px] font-black text-slate-300 uppercase mt-auto hover:text-red-500">Sign Out</button>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 p-12 overflow-y-auto">
         <header className="mb-12 flex justify-between items-center">
            <h1 className="text-4xl font-black tracking-tight uppercase">Dashboard</h1>
@@ -121,19 +156,19 @@ export default function App() {
               </div>
               <input 
                 value={userSettings.niche}
-                onChange={(e) => setUserSettings({...userSettings, niche: e.target.value})}
+                onChange={(e) => { setUserSettings({...userSettings, niche: e.target.value}); setHasSynced(false); }}
                 placeholder="e.g. AI Automation, Tech Investing..."
-                className="w-full p-6 bg-white border border-slate-200 rounded-3xl text-xl font-bold focus:ring-4 focus:ring-blue-50 outline-none transition-all"
+                className="w-full p-6 bg-white border border-slate-200 rounded-3xl text-xl font-bold focus:ring-4 focus:ring-blue-50 outline-none transition-all shadow-sm"
               />
             </section>
 
             <section className="space-y-6">
               <div className="flex items-center gap-2 text-blue-600">
-                <Users className="w-4 h-4"/><span className="text-[10px] font-black uppercase tracking-widest">10 Mentors to Imitate (X Usernames)</span>
+                <Users className="w-4 h-4"/><span className="text-[10px] font-black uppercase tracking-widest">10 Mentors to Imitate</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {userSettings.mentors.map((m, i) => (
-                  <div key={i} className="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-1">
+                  <div key={i} className="flex items-center bg-white border border-slate-200 rounded-2xl px-5 py-1 shadow-sm">
                     <span className="text-slate-300 font-bold text-xs mr-4">{i+1}</span>
                     <input 
                       value={m}
@@ -141,6 +176,7 @@ export default function App() {
                         const upd = [...userSettings.mentors];
                         upd[i] = e.target.value;
                         setUserSettings({...userSettings, mentors: upd});
+                        setHasSynced(false);
                       }}
                       placeholder="@username"
                       className="w-full py-3 bg-transparent border-none font-bold text-slate-700 outline-none"
@@ -150,17 +186,48 @@ export default function App() {
               </div>
             </section>
 
-            <button 
-              onClick={saveToDatabase}
-              className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-xl shadow-2xl hover:bg-blue-700 active:scale-95 transition-all"
-            >
-              {isSaving ? <RefreshCw className="animate-spin" /> : "Sync AI Settings"}
-            </button>
+            <div className="flex flex-col gap-4">
+              <button 
+                onClick={saveToDatabase}
+                disabled={isSaving}
+                className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-xl shadow-xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isSaving ? <RefreshCw className="animate-spin" /> : "1. Sync AI Settings"}
+              </button>
+
+              {/* ANALYSIS ENGINE BOX */}
+              <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${hasSynced ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className={`font-black text-xs uppercase tracking-widest flex items-center gap-2 ${hasSynced ? 'text-white' : 'text-slate-400'}`}>
+                    <Activity className={`w-4 h-4 ${hasSynced ? 'text-blue-500' : 'text-slate-300'}`} /> Neural Analysis Log
+                  </h3>
+                  {isAnalyzing && <RefreshCw className="animate-spin text-blue-500 w-4 h-4" />}
+                </div>
+                
+                <div className="font-mono text-[11px] text-slate-400 space-y-2 h-24 overflow-y-auto mb-6 bg-black/20 p-4 rounded-xl">
+                  {analysisLog.length === 0 ? (
+                    <p className="italic opacity-50">Awaiting sync... Save niche and mentors above to enable style extraction.</p>
+                  ) : (
+                    analysisLog.map((log, i) => (
+                      <p key={i} className={log.includes('SUCCESS') ? 'text-green-400 font-bold' : ''}>&gt; {log}</p>
+                    ))
+                  )}
+                </div>
+
+                <button 
+                  onClick={runAnalysis}
+                  disabled={!hasSynced || isAnalyzing}
+                  className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-lg ${hasSynced ? 'bg-white text-black hover:bg-blue-500 hover:text-white' : 'bg-slate-200 text-slate-400'}`}
+                >
+                  {isAnalyzing ? "Processing DNA..." : "2. Launch Style Extraction"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'matrix' && <div className="p-20 text-center text-slate-300 font-black italic border-4 border-dashed border-slate-100 rounded-[3rem]">Live Matrix Feed Connecting via X API...</div>}
-        {activeTab === 'agent' && <div className="p-20 text-center text-slate-300 font-black italic border-4 border-dashed border-slate-100 rounded-[3rem]">Agent Standby: Awaiting Configuration...</div>}
+        {activeTab === 'agent' && <div className="p-20 text-center text-slate-300 font-black italic border-4 border-dashed border-slate-100 rounded-[3rem]">Agent Standby: Awaiting Style Profile...</div>}
       </main>
     </div>
   );
