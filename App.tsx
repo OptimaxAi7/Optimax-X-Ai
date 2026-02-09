@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Menu, Sparkles, ArrowRight, RefreshCw, BarChart2, Users, 
-  TrendingUp, Mail, CheckCircle, LogOut, Settings, LayoutDashboard, 
-  Plus, Search, Twitter, Zap, Clock
+  Menu, Sparkles, RefreshCw, BarChart2, Users, 
+  TrendingUp, CheckCircle, LogOut, Plus, Twitter, Zap, Clock
 } from 'lucide-react';
 import { createClient, User } from '@supabase/supabase-js';
 import { GoogleGenAI } from "@google/genai";
@@ -12,10 +11,6 @@ const SUPABASE_URL = 'https://ydgtsdfwkchcdttvqijv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlkZ3RzZGZ3a2NoY2R0dHZxaWp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MTIxNTksImV4cCI6MjA4NTk4ODE1OX0.bQ2qCDEMCvw-hAs3lNYYUUYilfm9M-AMTFjLViDBOA8';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// SAFETY SHIELD: This prevents the "API Key must be set" crash
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = API_KEY ? new GoogleGenAI(API_KEY) : null;
 
 // --- TYPES ---
 type AppTab = 'studio' | 'tracker' | 'analytics';
@@ -32,7 +27,8 @@ interface Mentor {
   impact: string;
 }
 
-// --- SHARED COMPONENTS ---
+// --- COMPONENTS ---
+
 const Button: React.FC<any> = ({ children, variant = 'primary', isLoading = false, className = '', ...props }) => {
   const variants: any = {
     primary: "bg-blue-600 text-white hover:bg-blue-700 shadow-md",
@@ -47,7 +43,7 @@ const Button: React.FC<any> = ({ children, variant = 'primary', isLoading = fals
   );
 };
 
-// --- FEATURE MODULES ---
+// --- FEATURES ---
 
 const MentorTracker = () => {
   const [mentors, setMentors] = useState<Mentor[]>([
@@ -58,7 +54,7 @@ const MentorTracker = () => {
 
   const addMentor = () => {
     if (newHandle && mentors.length < 10) {
-      setMentors([...mentors, { handle: newHandle, niche: "Analysis Pending", impact: "Calc..." }]);
+      setMentors([...mentors, { handle: newHandle, niche: "Pending", impact: "Calc..." }]);
       setNewHandle("");
     }
   };
@@ -66,24 +62,18 @@ const MentorTracker = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-bold">The Mentor Engine</h2>
-          <p className="text-sm text-gray-500">Track 10 accounts to fuel your AI's learning model.</p>
-        </div>
+        <div><h2 className="text-xl font-bold">The Mentor Engine</h2><p className="text-sm text-gray-500">Track accounts to learn patterns.</p></div>
         <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{mentors.length}/10 Slots</div>
       </div>
       <div className="flex gap-2">
-        <input className="flex-1 bg-white border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter X Handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} />
-        <Button onClick={addMentor} disabled={mentors.length >= 10}><Plus className="w-4 h-4"/> Add</Button>
+        <input className="flex-1 border rounded-lg px-4 py-2" placeholder="Enter Handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} />
+        <Button onClick={addMentor}><Plus className="w-4 h-4"/> Add</Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {mentors.map((m, i) => (
-          <div key={i} className="bg-white p-4 border rounded-xl flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-blue-600"><Twitter className="w-5 h-5"/></div>
-              <div><div className="font-bold">{m.handle}</div><div className="text-xs text-gray-400">{m.niche}</div></div>
-            </div>
-            <div className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">{m.impact}</div>
+          <div key={i} className="bg-white p-4 border rounded-xl flex justify-between">
+            <div className="flex gap-3 items-center"><Twitter className="w-5 h-5 text-blue-400"/><div className="font-bold">{m.handle}</div></div>
+            <div className="text-xs font-bold text-green-600 bg-green-50 px-2 rounded">{m.impact}</div>
           </div>
         ))}
       </div>
@@ -92,16 +82,13 @@ const MentorTracker = () => {
 };
 
 const AnalyticsView = () => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {[{ label: "Virality Avg", val: "84%", icon: <Zap className="text-yellow-500"/> }, { label: "Followers", val: "+242", icon: <TrendingUp className="text-green-500"/> }, { label: "AI Accuracy", val: "92%", icon: <Sparkles className="text-blue-500"/> }].map((s, i) => (
-        <div key={i} className="bg-white p-6 border rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">{s.icon} {s.label}</div>
-          <div className="text-3xl font-bold">{s.val}</div>
-        </div>
-      ))}
-    </div>
-    <div className="bg-white p-6 border rounded-2xl h-64 flex flex-col items-center justify-center text-gray-400"><BarChart2 className="w-12 h-12 mb-2 opacity-20" /><p>Chart Loading...</p></div>
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {[{ label: "Virality Score", val: "84%", icon: <Zap className="text-yellow-500"/> }, { label: "Follower Vel.", val: "+242", icon: <TrendingUp className="text-green-500"/> }, { label: "AI Accuracy", val: "92%", icon: <Sparkles className="text-blue-500"/> }].map((s, i) => (
+      <div key={i} className="bg-white p-6 border rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">{s.icon} {s.label}</div>
+        <div className="text-3xl font-bold">{s.val}</div>
+      </div>
+    ))}
   </div>
 );
 
@@ -114,23 +101,32 @@ const PostStudio = () => {
     if (!content) return;
     setIsAnalyzing(true);
     
-    // Fallback if AI isn't connected properly
-    if (!genAI) {
-        setTimeout(() => {
-            setResult({ score: 70, reason: "Offline Mode: AI key not detected.", improvedVersion: content + " #Optimax" });
-            setIsAnalyzing(false);
-        }, 1000);
-        return;
+    // --- SAFETY CHECK: ONLY LOAD AI WHEN CLICKED ---
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      alert("⚠️ API Key is missing in Netlify! Using Mock Data.");
+      setTimeout(() => {
+         setResult({ score: 75, reason: "Mock Result: Add VITE_GEMINI_API_KEY to Netlify to fix.", improvedVersion: content + " #Fixed" });
+         setIsAnalyzing(false);
+      }, 1000);
+      return;
     }
 
     try {
+        const genAI = new GoogleGenAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const res = await model.generateContent(`Improve this tweet: ${content}. Return JSON: {score, reason, improvedVersion}`);
+        const res = await model.generateContent(`Analyze this tweet: "${content}". Return JSON format: { "score": number, "reason": string, "improvedVersion": string }`);
         const text = res.response.text();
-        // Simple logic to handle result
-        setResult({ score: 85, reason: "AI Analysis Complete", improvedVersion: text });
+        
+        // Clean the JSON string if it has markdown blocks
+        const cleanText = text.replace(/```json|```/g, '').trim();
+        const json = JSON.parse(cleanText);
+        
+        setResult(json);
     } catch (e) {
-        setResult({ score: 50, reason: "Error contacting AI", improvedVersion: content });
+        console.error(e);
+        setResult({ score: 50, reason: "AI Error. Try again.", improvedVersion: content });
     }
     setIsAnalyzing(false);
   };
@@ -170,14 +166,14 @@ const App: React.FC = () => {
 
   if (user) return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <div className="w-64 bg-white border-r p-6 space-y-4">
-        <div className="font-bold text-xl mb-8">Optimax AI</div>
+      <div className="w-64 bg-white border-r p-6 space-y-4 hidden md:block">
+        <div className="font-bold text-xl mb-8 flex items-center gap-2"><div className="w-8 h-8 bg-blue-600 rounded-lg text-white flex items-center justify-center">OX</div>Optimax</div>
         {['studio', 'tracker', 'analytics'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t as AppTab)} className={`w-full text-left px-4 py-2 rounded-lg ${activeTab === t ? 'bg-blue-600 text-white' : 'text-gray-500'}`}>{t}</button>
+          <button key={t} onClick={() => setActiveTab(t as AppTab)} className={`w-full text-left px-4 py-2 rounded-lg capitalize ${activeTab === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>{t}</button>
         ))}
-        <button onClick={() => supabase.auth.signOut()} className="w-full text-left px-4 py-2 text-red-500 mt-20">Logout</button>
+        <button onClick={() => supabase.auth.signOut()} className="w-full text-left px-4 py-2 text-gray-400 hover:text-red-500 mt-20 flex gap-2"><LogOut className="w-4 h-4"/>Logout</button>
       </div>
-      <main className="flex-1 p-10">
+      <main className="flex-1 p-6 md:p-10">
         <h1 className="text-3xl font-bold mb-8 capitalize">{activeTab}</h1>
         {activeTab === 'studio' && <PostStudio />}
         {activeTab === 'tracker' && <MentorTracker />}
@@ -187,9 +183,11 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center space-y-6">
-      <h1 className="text-6xl font-black">Optimax <span className="text-blue-600">AI</span></h1>
-      <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'twitter', options: { redirectTo: window.location.origin } })}>Connect X to Start</Button>
+    <div className="h-screen flex flex-col items-center justify-center space-y-6 text-center px-4">
+      <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-xl mb-4">OX</div>
+      <h1 className="text-5xl font-black">Optimax <span className="text-blue-600">AI</span></h1>
+      <p className="text-gray-500">Autonomous Social Media Engineering</p>
+      <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'twitter', options: { redirectTo: window.location.origin } })} className="px-8 py-3"><Twitter className="w-5 h-5"/> Connect X to Start</Button>
     </div>
   );
 };
