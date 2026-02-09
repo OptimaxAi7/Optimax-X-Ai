@@ -26,7 +26,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // 2. Gemini AI
 // Note: In a production React environment, process.env.API_KEY usually requires a build step configuration (like .env).
 // Ensure your Netlify environment variables are set correctly.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+```tsx const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
 
 // --- TYPES ---
 interface ViralityAnalysis {
@@ -38,7 +38,7 @@ interface ViralityAnalysis {
 // --- SERVICES ---
 const analyzePost = async (content: string): Promise<ViralityAnalysis> => {
   try {
-    if (!process.env.API_KEY) {
+    (!import.meta.env.VITE_GEMINI_API_KEY) {
        console.warn("API Key is missing. Returning mock response for demo.");
        // Fallback for demo purposes if key isn't present
        await new Promise(r => setTimeout(r, 1500));
