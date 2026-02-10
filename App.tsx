@@ -68,13 +68,23 @@ export default function App() {
     if (!session?.user?.id) return;
     setIsSaving(true);
     
-    const { error } = await supabase.from('user_ai_profiles').upsert({
+    const { error } = await supabase
+  .from('user_ai_profiles')
+  .upsert(
+    {
       user_id: session.user.id,
       main_niche: userSettings.niche,
       mentor_handles: userSettings.mentors,
-      ai_character: "Mimic-Agent-V1", // Required field from your SQL
-      updated_at: new Date()
-    });
+      ai_character: "Mimic-Agent-V1",
+      updated_at: new Date().toISOString() // Ensure ISO string format
+    },
+    { 
+      onConflict: 'user_id', // <--- THIS TELLS SUPABASE HOW TO MATCH THE ROW
+      ignoreDuplicates: false 
+    }
+  );
+
+if (error) console.error("Sync Error:", error.message);
 
     setIsSaving(false);
     if (!error) {
