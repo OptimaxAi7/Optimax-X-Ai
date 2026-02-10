@@ -1,43 +1,60 @@
 import { Handler } from '@netlify/functions';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const handler: Handler = async (event) => {
-  // 1. Only allow POST requests (Security)
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
+  // 1. Get your secure keys from Netlify Environment
+  const GEMINI_KEY = process.env.GEMINI_API_KEY;
+  const X_TOKEN = process.env.X_BEARER_TOKEN;
+  const X_TIER = process.env.X_TIER || 'free';
+
   try {
-    // 2. Parse the data sent from your App.tsx
     const { niche, mentors } = JSON.parse(event.body || '{}');
 
-    if (!niche || !mentors) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing data' }) };
-    }
+    // 2. Initialize Gemini
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // 3. The "Analysis" Simulation
-    // In a production SaaS, this is where you'd call a model like Gemini 1.5 Flash
-    // to analyze the X handles. For now, we simulate the high-speed processing.
+    // 3. SaaS Logic: Extract Style DNA
+    // This prompt tells the AI to create a 'Writing Profile' based on your input
+    const prompt = `
+      You are an AI Social Media Strategist. 
+      Niche: ${niche}
+      Target Mentors: ${mentors.join(', ')}
+      
+      Analyze these mentors and provide a JSON profile including:
+      1. dominant_tone (e.g., 'Aggressive Value', 'Philosophical')
+      2. hook_style (How they start tweets)
+      3. formatting_rules (List, short sentences, etc.)
+      4. x_tier_status: "${X_TIER}"
+      
+      Return ONLY valid JSON.
+    `;
+
+    const result = await model.generateContent(prompt);
+    const textResponse = result.response.text();
     
-    console.log(`Analyzing ${mentors.length} mentors for niche: ${niche}`);
-
-    // This data would eventually be saved to your 'user_settings' table 
-    // to guide the 'Live Agent' tab.
-    const analysisResult = {
-      status: 'SUCCESS',
-      tone_profile: 'Professional yet edgy',
-      extracted_patterns: ['Short hooks', 'Numbered lists', 'Low emoji usage'],
-      timestamp: new Date().toISOString()
-    };
+    // Clean the AI response to ensure it's pure JSON
+    const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+    const finalData = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: "Analysis format error" };
 
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(analysisResult),
+      body: JSON.stringify({
+        ...finalData,
+        timestamp: new Date().toISOString(),
+        engine_status: "Active"
+      }),
     };
   } catch (error) {
+    console.error("Neural Engine Error:", error);
     return { 
       statusCode: 500, 
-      body: JSON.stringify({ error: 'Neural Engine Stall' }) 
+      body: JSON.stringify({ error: 'Neural Engine Stall', details: error.message }) 
     };
   }
 };
