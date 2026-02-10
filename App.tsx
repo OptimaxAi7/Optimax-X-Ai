@@ -13,7 +13,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('config');
   const [isSaving, setIsSaving] = useState(false);
   
-  // NEW: Analysis Engine States
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
@@ -39,20 +38,23 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // UPDATED: Mapped to your 'user_ai_profiles' table columns
   const fetchSettings = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_settings')
-        .select('niche, mentors')
+        .from('user_ai_profiles')
+        .select('main_niche, mentor_handles')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (data) {
         setUserSettings({
-          niche: data.niche || '',
-          mentors: data.mentors && data.mentors.length === 10 ? data.mentors : ['', '', '', '', '', '', '', '', '', '']
+          niche: data.main_niche || '',
+          mentors: data.mentor_handles && data.mentor_handles.length === 10 
+            ? data.mentor_handles 
+            : ['', '', '', '', '', '', '', '', '', '']
         });
-        if (data.niche) setHasSynced(true);
+        if (data.main_niche) setHasSynced(true);
       }
     } catch (e) {
       console.error("Data Fetch Blocked:", e);
@@ -61,25 +63,29 @@ export default function App() {
     }
   };
 
+  // UPDATED: Saves to 'user_ai_profiles' with correct column names
   const saveToDatabase = async () => {
     if (!session?.user?.id) return;
     setIsSaving(true);
-    const { error } = await supabase.from('user_settings').upsert({
+    
+    const { error } = await supabase.from('user_ai_profiles').upsert({
       user_id: session.user.id,
-      niche: userSettings.niche,
-      mentors: userSettings.mentors,
+      main_niche: userSettings.niche,
+      mentor_handles: userSettings.mentors,
+      ai_character: "Mimic-Agent-V1", // Required field from your SQL
       updated_at: new Date()
     });
+
     setIsSaving(false);
     if (!error) {
       setHasSynced(true);
       alert("SaaS AI Engine Updated.");
     } else {
-      alert("Error saving context.");
+      console.error("Save Error:", error);
+      alert("Error saving context. Check your Supabase RLS policies.");
     }
   };
 
-  // NEW: Analysis Engine Function
   const runAnalysis = async () => {
     const validMentors = userSettings.mentors.filter(m => m.trim() !== '');
     if (!userSettings.niche || validMentors.length < 3) {
@@ -91,7 +97,8 @@ export default function App() {
     setAnalysisLog(["Initializing Analysis Engine...", "Establishing Neural Link to X handles..."]);
 
     try {
-      const response = await fetch('/.netlify/functions/analyze-mentors', {
+      // Points to your Netlify Function
+      const response = await fetch('/api/analyze-mentors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -195,7 +202,6 @@ export default function App() {
                 {isSaving ? <RefreshCw className="animate-spin" /> : "1. Sync AI Settings"}
               </button>
 
-              {/* ANALYSIS ENGINE BOX */}
               <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${hasSynced ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed'}`}>
                 <div className="flex items-center justify-between mb-6">
                   <h3 className={`font-black text-xs uppercase tracking-widest flex items-center gap-2 ${hasSynced ? 'text-white' : 'text-slate-400'}`}>
